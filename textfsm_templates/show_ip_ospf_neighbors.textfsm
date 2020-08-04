@@ -1,0 +1,12 @@
+# gather ospf neighbors info (should work for IOS, IOS-XE and NXOS)
+# use command 'show ip ospf neighbor | begin Neighbor'
+Value NEIGHBOR_ID (([0-9]{1,3}\.){3}([0-9]{1,3}))
+Value DR_INT_PRIORITY (\d+)
+Value STATE ((\w+)(\/)?(\w+)?)
+Value DEADTIME_UPTIME ((\d+[w]?\d[d])|([0-9:]+))
+Value NEIGHBOR_ADDRESS (([0-9]{1,3}\.){3}[0-9]{1,3})
+Value INTERFACE (.*)
+
+Start
+ ^\s?Neighbor\sID.*
+ ^\s?${NEIGHBOR_ID}\s+${DR_INT_PRIORITY}\s+${STATE}\s+${DEADTIME_UPTIME}\s+${NEIGHBOR_ADDRESS}\s+${INTERFACE} -> Record

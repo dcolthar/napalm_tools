@@ -1,0 +1,18 @@
+# a filtered output from the command:
+# show interface switchport | include (Name|Administrative Mode|Native Mode VLAN|Trunking VLANs|Access Mode VLAN|Voice VLAN|Switchport)
+Value Required PORT_NAME (.*)
+Value SWITCHPORT_STATUS (.*)
+Value ADMIN_MODE ((.*)?)
+Value ACCESS_VLAN ((\d+)?)
+Value TRUNK_NATIVE ((\d+)?)
+Value VOICE_VLAN ((\d+)?)
+Value TRUNK_ALLOWED ((.*)?)
+
+Start
+ ^Name:\s${PORT_NAME}
+ ^Switchport:\s${SWITCHPORT_STATUS}
+ ^Administrative Mode:\s${ADMIN_MODE}
+ ^Access Mode VLAN:\s${ACCESS_VLAN}
+ ^Trunking Native Mode VLAN:\s${TRUNK_NATIVE}
+ ^Voice VLAN:\s${VOICE_VLAN}
+ ^Trunking VLANs Enabled:\s${TRUNK_ALLOWED} -> Record

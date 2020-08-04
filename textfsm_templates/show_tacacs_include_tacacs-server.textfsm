@@ -1,0 +1,6 @@
+# gather info about legacy tacacs hosts
+Value SERVER_IP ((\d{1,3}\.){3}(\d{1,3}))
+Value KEY ((7_)?.*)
+
+Start
+ ^tacacs-server\shost\s${SERVER_IP}\skey\s${KEY} -> Record

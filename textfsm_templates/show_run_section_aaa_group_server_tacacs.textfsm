@@ -1,0 +1,7 @@
+# gather info about aaa server groups
+Value Filldown AAA_GROUP_NAME (.*)
+Value Required SERVER (.*)
+
+Start
+ ^aaa\sgroup\sserver\stacacs\+\s${AAA_GROUP_NAME}
+ ^\s?server\s${SERVER} -> Record
