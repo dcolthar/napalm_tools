@@ -5,6 +5,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 from PIL import Image
+import yaml
 
 
 
@@ -108,6 +109,8 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
     :param ports_summary:
     :return:
     '''
+    # yaml file for port mapping column headers
+    port_mapping_headers_file = 'yaml_template_files/port_mapping_columns.yaml'
 
     # we'll need to offset x amount of rows and columns to fit into the existing workbook
     row_offset = 2
@@ -160,6 +163,7 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
     ports_worksheet.column_dimensions['E'].width = 20
     ports_worksheet.column_dimensions['F'].width = 20
     ports_worksheet.column_dimensions['G'].width = 20
+    ports_worksheet.column_dimensions['H'].width = 30
 
 
     # add the company logo, first merge the cells
@@ -227,7 +231,7 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
     home_column = 1 + column_offset
     current_column = 1 + column_offset
     # the number of cells in the switch port mapping section
-    switch_data_field_width = 6
+    switch_data_field_width = 7
 
    #print(f'home column is {home_column}\ncurrent column is {current_column}\ncurrent row is {current_row}')
 
@@ -362,10 +366,14 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
                     #print(f'home column is {home_column}\ncurrent column is {current_column}\ncurrent row is {current_row}')
 
                     # write titles to columns
-                    col_headers = [
-                        'interface', 'patch_panel_port', 'mode', 'access_vlan',
-                        'voice_vlan', 'trunk_native_vlan', 'trunk_allowed_vlans'
-                    ]
+                    with open(port_mapping_headers_file) as f:
+                        # read in the yaml file
+                        yaml_input = yaml.load(f, Loader=yaml.FullLoader)
+                        col_headers = yaml_input['port_mapping_columns']
+                    # col_headers = [
+                    #     'interface', 'patch_panel_port', 'mode', 'access_vlan',
+                    #     'voice_vlan', 'trunk_native_vlan', 'trunk_allowed_vlans'
+                    # ]
                     # column width values to set for each header column
                     col_width = 20
                     # iterate through column headers
@@ -396,6 +404,10 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
                         cell.border = thin_border
                         current_column += 1
                         # write blank for patch panel port
+                        cell = ports_worksheet.cell(row=current_row, column=current_column)
+                        cell.border = thin_border
+                        current_column += 1
+                        # write blank new port section
                         cell = ports_worksheet.cell(row=current_row, column=current_column)
                         cell.border = thin_border
                         current_column += 1
@@ -495,13 +507,14 @@ def port_mapping_excel_creation(ports_summary, output_file, image_file):
                     cell.value = f'=HYPERLINK("#{sheet_entry}!A1", "{sheet_entry}")'
                     cell.style = 'Hyperlink'
                     cell.border = thin_border
+                ##### TODO: add in Site Name mapping to auto fill out field ####
                 # increment column
                 home_column += 1
             # increment row and reset column
             home_row += 1
             home_column -= len(fields)
 
-    # save and closet our file
+    # save and close our file
     ports_workbook.save(output_file)
     ports_workbook.close()
 

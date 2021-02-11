@@ -26,6 +26,12 @@ class Main():
                           action='store_true')
         args.add_argument('--port_mapping', help='build out logical info for a port mapping and write to excel',
                           action='store_true')
+        args.add_argument('--mac_address_table', help='dump mac address table to a file for the switch',
+                          action='store_true')
+        args.add_argument('--validate_mac_address_table', help='validate mac addresses in the right vlan',
+                          action='store_true')
+        args.add_argument('--input_mac_address_table_file', help='name of the mac table file to read from',
+                          default='mac_address_table.xlsx')
         args.add_argument('--file_name', help='name of the file to pull hosts from default is host_list.xlsx',
                           default='host_list.xlsx')
         args.add_argument('--port_mapping_output_file',
@@ -44,6 +50,8 @@ class Main():
         self.total_interfaces_info = []
         # this is used if doing a port mapping
         self.port_mapping_info = []
+        # this is used if doing a mac address table
+        self.mac_address_table_info = {}
 
         # if we're counting interface stats  or doing a port mapping lets remove the old files first
         try:
@@ -73,6 +81,12 @@ class Main():
                 image_file=self.args_dict['image_filename']
             )
 
+        # if we did a mac address table dump do this
+        if len(self.mac_address_table_info) > 0:
+            napalm_common_operations.write_mac_addresses_to_excel(
+                mac_address_table_info=self.mac_address_table_info
+            )
+
     def do_thread(self):
         # we need the password to use to connect
         password = getpass('Enter the password to use to connect to hosts:')
@@ -82,16 +96,18 @@ class Main():
         hosts = pd.read_excel(self.args_dict['file_name'])
         # iterate through and add all hosts to the queue
         for index, value in hosts.iterrows():
-            self.work_queue.put(
-                {
-                    'site_name': value['Site Name'],
-                    'host': value['IP Address'],
-                    'device_role': value['Device Role'],
-                    'device_type': value['Device Type'],
-                    'device_hostname': value['Device Hostname'],
-                    'closet': value['Closet Name']
-                }
-            )
+            if value['Include'] == True:
+                self.work_queue.put(
+                    {
+                        'site_name': value['Site Name'],
+                        'host': value['IP Address'],
+                        'device_role': value['Device Role'],
+                        'device_type': value['Device Type'],
+                        'device_hostname': value['Device Hostname'],
+                        'closet': value['Closet Name'],
+                        'site_name': value['Site Name']
+                    }
+                )
         # now we kick off our threads
         for i in range(int(self.args_dict['thread_max'])):
             worker_thread = threading.Thread(
@@ -112,7 +128,7 @@ class Main():
             try:
                 # lets get our host info
                 host_info = self.work_queue.get()
-                print(f'beginning work on host {host_info["device_hostname"]} at ip {host_info["host"]}')
+                print(f'beginning work on host at ip {host_info["host"]}')
 
                 # lets try to connect
                 network_connection = napalm_common_operations.connect_to_network_device(
@@ -123,6 +139,9 @@ class Main():
                 )
                 # if the connection failed...False was returned and we just skip this
                 if network_connection:
+
+                    facts = network_connection.get_facts()
+                    host_info['device_hostname'] = facts['hostname']
 
                     # now do work depending on what arguments were passed
                     # should we write the full config to a file
@@ -158,6 +177,34 @@ class Main():
                             self.port_mapping_info.append({host_info['closet']: [results]})
                         #self.port_mapping_info.append(results)
 
+                    # if a mac address table map dump is desired
+                    if self.args_dict['mac_address_table']:
+                        site = host_info['site_name']
+                        closet = host_info['closet']
+                        # mac table for the switch
+                        results = napalm_common_operations.get_mac_address_table(network_connection=network_connection)
+
+                        # if the site doesn't exist in the global output...add it
+                        if not site in self.mac_address_table_info:
+                            self.mac_address_table_info[site] = {}
+                        # if the closet isn't in the list on the site...add it
+                        if not closet in self.mac_address_table_info[site]:
+                            self.mac_address_table_info[site][closet] = []
+                        # add the device results to the site and closet
+                        self.mac_address_table_info[site][closet].append(
+                            results
+                        )
+
+                    # if we want to validate mac addresses in a file against a new switch
+                    if self.args_dict['validate_mac_address_table']:
+                        mac_input_file = self.args_dict['input_mac_address_table_file']
+                        # pass the network_connection object and the input mac address table file
+                        napalm_common_operations.valiate_mac_table(
+                            mac_input_file=mac_input_file,
+                            network_connection=network_connection
+                        )
+
+
                     # should we upgrade legacy tacacs config if it exists?
                     if self.args_dict['tacacs_legacy_upgrade']:
                         pass
@@ -183,6 +230,7 @@ class Main():
                 napalm_common_operations.disconnect_from_network_device(network_connection=network_connection)
             except Exception as e:
                 print(f'an Exception occurred while connecting\n{e}')
+                raise(e)
             finally:
                 # signal queue entry work is done
                 self.work_queue.task_done()

@@ -1,0 +1,10 @@
+---
+port_mapping_columns:
+  - old_interface
+  - patch_panel_port
+  - new_interface
+  - mode
+  - access_vlan
+  - voice_vlan
+  - trunk_native_vlan
+  - trunk_allowed_vlans
